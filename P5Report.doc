@@ -1,0 +1,106 @@
+﻿ECE 3056 HW5 Cache Report 
+Ruo Zhang
+
+A) The data structures of the program can be described as the cachesim.c file accessing the data structure of set and stack
+
+typedef struct stack{
+	int size;
+	int array[100];
+}stack;
+
+
+The stack have a size value which correspond to the associativities, and an array of 100 which stores the tag value. 
+
+typedef struct set{
+	int size;
+	int tag[100];
+	int valid[100];
+	int dirty[100];
+}set;	
+
+The set have a size value which correspond to the associativities, and three arrays of size 100 which stores the tag value, valid bit, and dirty bit.
+
+In the cachesim_init function, I initiate all of the size to value of associativities, and the tags to -1, and  valid bit, and dirty bit to 0.
+
+B) The function to parse the address used log and shifting function. First I calculate the length of bit for each attribute
+
+
+	block_length = log(blocksize) / log(2);  //calculate the length of bit for block	
+	set_total = cachesize / blocksize / ways;	 //calculate how many index there are
+	index_length = log(set_total) / log(2);  //calculate the length of bit for index	
+	tag_length = 32 - block_length - index_length; //calculate the length of bit for tag
+
+The AND and SHIFT operation is used to obtain the block offset, index, and tag value.
+
+//bitwise AND operation to get the address, used 1s to get rid off byte offset
+	block_value = (physical_addr) & ((1<<block_length) - 1); 
+	set_index = (physical_addr >> (block_length))&((1<<index_length) - 1);
+	tag_value = (physical_addr >> (block_length + index_length ))&((1<<tag_length) - 1);
+
+The implementation of cache LRU	stack is simply shifting the array. Such is an example when it is a hit in the Cache
+
+removed_value = st[set_index].array[hitIndex]; //update the LRU by first finding the hit value
+		for (i = 0; i < assoc; i++){
+			if (i >= hitIndex){
+				st[set_index].array[i] = st[set_index].array[i + 1]; //simply shifting the array to the left
+			}
+		}
+		st[set_index].array[assoc - 1] = removed_value; //move the hit value to the end(most recent used)
+
+The miss is the same procedure, except whole array is shifted left and the new value fetched from memory is put the the end of the array(most recent used)
+
+
+
+
+Figure 1. Table of data of Miss	Access	Read Miss	Read Access Write Miss	Write Access, write back volume, and memory access volume, collected with the parameters of BLOCK_SIZES="32 64 128 256 512 1024 2048", CACHE_SIZES="131072", and ASSOCIATIVITIES="4" (The unit of size and volume are in bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 2. Table of summarization of results of overall miss	rate, the read miss rate, and the	write miss	rate
+
+
+
+
+Figure 3. Plots of miss rate vs line size
+
+The overall equation for miss rate over line sizes can be approximate with a log function as below:
+
+
+However, the lowest miss rate occurs when block size equals to 512 byte for both traces. Passing beyongd that value, the miss rate for overall and read miss rate starts going up for both traces, the write misses still goes down in this parameter of settings of associativity equals 4 and cache size equals 128Kbyte.
+
+
+Figure 4. In order to test our the best configuration when cache size equals 128Kbyte, a shell file is run.
+
+
+BLOCK_SIZES="32 64 128 256 512 1024 2048"
+CACHE_SIZES="131072"
+ASSOCIATIVITIES="1 2 4 8 16 32 64"
+TRACES=`ls trace.bubble trace.merge`
+
+for b in $BLOCK_SIZES; do
+  for s in $CACHE_SIZES; do
+    for a in $ASSOCIATIVITIES; do
+      for t in $TRACES; do
+        echo -n "$t, $s, $a, $b, "
+        ./cachesim $t $b $s $a
+      done
+    done  
+  done
+done
+
+Aftering finding the lowest average between the result of trace.bubble and trace.merge, we determine that associativity equals to 64 and block size equals to 512 byte in a 131072 byte cache had the lowest miss value.
